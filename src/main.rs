@@ -1,11 +1,15 @@
 extern crate clap;
 
+const FILE_PATH: &str = "/home/keanu/code/habitio/src/habits";
+
 use clap::{App, Arg, ArgMatches, SubCommand};
-use std::fs;
-use std::io::{Read, Write};
+use std::{
+    fs,
+    io::{Read, Write},
+};
 
 fn habit_exists(name: &str) -> bool {
-    let mut file = fs::File::open("~/code/habitio/src/habits").unwrap();
+    let mut file = fs::File::open(FILE_PATH).unwrap();
     let mut content = String::new();
 
     file.read_to_string(&mut content).unwrap();
@@ -24,8 +28,19 @@ fn habit_exists(name: &str) -> bool {
 
 // TODO: error if habit exists (dont do if habit doesnt exists)
 fn add(name: &str, desc: &str) {
-    let name = name.trim();
-    let desc = desc.trim();
+    for char in name.chars() {
+        if char.is_numeric() {
+            todo!()
+        }
+    }
+    for char in desc.chars() {
+        if char.is_numeric() {
+            todo!()
+        }
+    }
+
+    let name = &name.trim().replace(" ", "_");
+    let desc = &desc.trim().replace(" ", "_");
 
     if !habit_exists(name) {
         let mut file = fs::OpenOptions::new()
@@ -34,30 +49,103 @@ fn add(name: &str, desc: &str) {
             .open("habits")
             .unwrap();
 
-        write!(
+        let _ = write!(
             &mut file,
             "name: {} description: {} streak: 0\n",
-            name.trim(),
-            desc.trim()
+            name, desc
         );
     }
 }
 
 fn remove(name: &str) {
-    todo!()
-}
+    let name = name.trim().replace(" ", "_");
 
-fn list() {
-    let mut file = fs::File::open("~/code/habitio/src/habits").unwrap();
-    let mut content = String::new();
+    if !habit_exists(&name) {
+        // TODO: tell the user that the habit doesnt exist
+        todo!();
+    }
 
-    file.read_to_string(&mut content).unwrap();
+    let content = include_str!("/home/keanu/code/habitio/src/habits");
+    let mut new_content = String::new();
+
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(FILE_PATH)
+        .unwrap();
 
     for habit in content.split("\n") {
         if !habit.is_empty() {
-	    println!("{}", &habit);
+            let habit_name = habit.split_whitespace().nth(1).unwrap().trim();
+            if name != habit_name {
+                new_content.push_str(habit);
+            }
         }
     }
+
+    let _ = write!(file, "{}", new_content);
+}
+
+fn list() {
+    let mut file = fs::File::open(FILE_PATH).unwrap();
+    let mut content = String::new();
+
+    file.read_to_string(&mut content).unwrap();
+    let content = content.replace("_", " ");
+
+    for habit in content.split("\n") {
+        if !habit.is_empty() {
+            println!("{}", &habit);
+        }
+    }
+}
+
+fn streak(name: &str) {
+    let name = name.trim().replace(" ", "_");
+
+    if !habit_exists(&name) {
+        // TODO: tell the user that the habit doesnt exist
+        todo!();
+    }
+
+    let content = include_str!("/home/keanu/code/habitio/src/habits");
+    let mut new_content = String::new();
+
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(FILE_PATH)
+        .unwrap();
+
+    for habit in content.split("\n") {
+        if !habit.is_empty() {
+            let habit_name = habit.split_whitespace().nth(1).unwrap().trim();
+            if &name == habit_name {
+                let habit = habit
+                    .chars()
+                    .filter(|x| !x.is_numeric())
+                    .collect::<String>()
+                    + &habit
+                        .split_whitespace()
+                        .last()
+                        .unwrap()
+                        .trim()
+                        .parse::<i32>()
+                        .unwrap()
+                        .checked_add(1)
+                        .unwrap()
+                        .to_string()
+                    + "\n";
+
+                new_content.push_str(&habit);
+            } else {
+                new_content.push_str(habit);
+                new_content.push('\n');
+            }
+        }
+    }
+
+    let _ = write!(file, "{}", new_content);
 }
 
 fn match_subcommands(arg_matches: ArgMatches) {
@@ -69,6 +157,7 @@ fn match_subcommands(arg_matches: ArgMatches) {
             ),
             "remove" => remove(subcommand.1.value_of("name").unwrap()),
             "list" => list(),
+            "streak" => streak(subcommand.1.value_of("name").unwrap()),
             _ => {}
         }
     } else {
@@ -83,7 +172,7 @@ fn main() {
             SubCommand::with_name("add")
                 .arg(
                     Arg::with_name("name")
-                        .help("The Name of the habit you want to track")
+                        .help("The Name of the habit you want to track (all whitespace will be replaced with underscore)")
                         .required(true),
                 )
                 .arg(
@@ -102,7 +191,16 @@ fn main() {
                 )
                 .about("Remove a habit"),
         )
-        .subcommand(SubCommand::with_name("list").about("List habits"))
+        .subcommand(SubCommand::with_name("list").about("List all habits"))
+        .subcommand(
+            SubCommand::with_name("streak")
+                .about("Increase the streak count of a habit")
+                .arg(
+                    Arg::with_name("name")
+                        .help("Name of the habit where you want to increase the streak")
+                        .required(true),
+                ),
+        )
         .get_matches();
 
     match_subcommands(matches);
