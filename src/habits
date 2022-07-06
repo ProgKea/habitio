@@ -1,4 +1,2 @@
-name: test description: testing streak: 4
-name: more_testing description: test streak: 1
 name: even_more_testing description: this_is_a_test streak: 1
-name: this_his_jf description: asdf streak: 0
+name: this_is_a_test description: this_is_another_test streak: 0
